@@ -9,74 +9,85 @@
 import UIKit
 import CoreMotion
 
-class ViewController: UIViewController {
+class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSource {
     
     let cmMotionActivityManager = CMMotionActivityManager()
-
+    
+    var myLabel: UILabel!
+    let myItems: NSMutableArray = []
+    var myTableView: UITableView!
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
-
-        let labelWidth: CGFloat = 280
         
-        let countLabelHeight: CGFloat = 100
-        let countLabelX: CGFloat = self.view.bounds.width/2 - labelWidth/2
-        let countLabelY: CGFloat = self.view.bounds.height/2 - countLabelHeight/2
-        let countLabel: UILabel = UILabel(frame: CGRect(x: countLabelX, y: countLabelY, width: labelWidth, height: countLabelHeight))
-        countLabel.font = UIFont.boldSystemFont(ofSize: CGFloat(100))
-        countLabel.text = "0"
-        countLabel.textAlignment = NSTextAlignment.center
-        self.view.addSubview(countLabel)
+        let notificationCenter = NotificationCenter.default
+        notificationCenter.addObserver(
+            self,
+            selector: #selector(ViewController.checkCyclingData),
+            name:NSNotification.Name.UIApplicationDidBecomeActive,
+            object: nil)
         
-        let titleLabelHeight: CGFloat = 25
-        let titleLabel: UILabel = UILabel(frame: CGRect(x: countLabelX, y: countLabelY - titleLabelHeight, width: labelWidth, height: titleLabelHeight))
-        titleLabel.font = UIFont.boldSystemFont(ofSize: CGFloat(20))
-        titleLabel.text = "Cycling Count"
-        titleLabel.textAlignment = NSTextAlignment.center
-        self.view.addSubview(titleLabel)
-
-        let fromTitleLabelHeight: CGFloat = 15
-        let fromLabel: UILabel = UILabel(frame: CGRect(x: countLabelX, y: countLabelY + countLabelHeight, width: labelWidth, height: fromTitleLabelHeight))
-        fromLabel.font = UIFont.systemFont(ofSize: CGFloat(10))
-        fromLabel.text = "From: -"
-        fromLabel.textAlignment = NSTextAlignment.right
-        self.view.addSubview(fromLabel)
+        // Status Barの高さを取得
+        let barHeight: CGFloat = UIApplication.shared.statusBarFrame.size.height
         
-        let toTitleLabelHeight: CGFloat = 15
-        let toLabel: UILabel = UILabel(frame: CGRect(x: countLabelX, y: countLabelY + countLabelHeight + fromTitleLabelHeight, width: labelWidth, height: toTitleLabelHeight))
-        toLabel.font = UIFont.systemFont(ofSize: CGFloat(10))
-        toLabel.text = "To: -"
-        toLabel.textAlignment = NSTextAlignment.right
-        self.view.addSubview(toLabel)
+        // Viewの高さと幅を取得
+        let displayWidth: CGFloat = self.view.frame.width
+        let displayHeight: CGFloat = self.view.frame.height
         
+        // Labelの生成
+        let labelHeight: CGFloat = 40
+        let myLabel: UILabel = UILabel(frame: CGRect(x: 0, y: barHeight, width: displayWidth, height: labelHeight))
+        myLabel.backgroundColor = UIColor.black
+        myLabel.textColor = UIColor.white
+        myLabel.font = UIFont.boldSystemFont(ofSize: CGFloat(14))
+        myLabel.textAlignment = NSTextAlignment.center
+        myLabel.text = "startDate of MotionActivity with 'cycling'"
+        self.view.addSubview(myLabel)
+        
+        // TableViewの生成
+        myTableView = UITableView(frame: CGRect(x: 0, y: barHeight + labelHeight, width: displayWidth, height: displayHeight - (barHeight + labelHeight)))
+        myTableView.register(UITableViewCell.self, forCellReuseIdentifier: "MyCell")
+        myTableView.dataSource = self
+        myTableView.delegate = self
+        self.view.addSubview(myTableView)
+    }
+    
+    override func didReceiveMemoryWarning() {
+        super.didReceiveMemoryWarning()
+        // Dispose of any resources that can be recreated.
+    }
+    
+    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
+        return myItems.count
+    }
+    
+    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
+        let cell = tableView.dequeueReusableCell(withIdentifier: "MyCell", for: indexPath as IndexPath)
+        cell.textLabel!.text = "\(myItems[indexPath.row])"
+        return cell
+    }
+    
+    func checkCyclingData() {
         if CMMotionActivityManager.isActivityAvailable() {
-            var cyclingCount = 0
-
+            myItems.removeAllObjects()
+            
             let toDate = NSDate()
             let fromDate = toDate.addingTimeInterval(TimeInterval(-1*7*24*60*60))
-            
-            fromLabel.text = "From: \(fromDate)"
-            toLabel.text = "To: \(toDate)"
             
             self.cmMotionActivityManager.queryActivityStarting(from: fromDate as Date, to: toDate as Date, to: OperationQueue.main, withHandler: {
                 [unowned self] cmMotionActivities, error in
                 if error != nil {
                 } else {
                     for cmMotionActivity in cmMotionActivities! {
-                        if cmMotionActivity.cycling {
-                            cyclingCount = cyclingCount + 1
-                            countLabel.text = String(cyclingCount)
+                        if cmMotionActivity.cycling == true {
+                            self.myItems.add(cmMotionActivity.startDate as NSDate)
                         }
                     }
+                    self.myTableView.reloadData()
                 }})
+            
         }
     }
-
-    override func didReceiveMemoryWarning() {
-        super.didReceiveMemoryWarning()
-        // Dispose of any resources that can be recreated.
-    }
-
-
 }
 
